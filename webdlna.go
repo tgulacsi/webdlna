@@ -45,7 +45,8 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	io.WriteString(w, "<html>")
+	w.Header().Set("Cache-Control", "max-age=300")
+	io.WriteString(w, "<!doctype html>")
 	for _, container := range dl.Containers {
 		if err := ctx.Err(); err != nil {
 			log.Println(err)
