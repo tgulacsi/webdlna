@@ -1,0 +1,31 @@
+package main
+
+import "strings"
+
+templ printItems(folder Container, items []Item) {
+	<h1>{ folder.Title }</h1>
+	<table id={ folder.ID }><thead>
+	<tr>
+		<th>Name</th>
+		<th>Date</th>
+		<th>Duration</th>
+		<th>Size</th>
+	</tr>
+</thead><tbody>
+	for _, i := range items {
+		if !strings.Contains(i.Res.URL, "/Thumbnails/") {
+			<tr>
+				<td><a href={ templ.URL(stripSize(i.Res.URL)) }>{ i.Title }</a></td>
+				<td>{ i.Date }</td>
+				<td>{ i.Res.Duration }</td>
+				<td>{ i.Res.Size }</td>
+			</tr>
+		}
+	}
+</tbody></table>
+}
+
+templ printErr(err error) {
+	<h3>{ err.Error() }</h3>
+}
+
