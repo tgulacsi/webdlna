@@ -98,6 +98,9 @@ func getFolders(ctx context.Context, baseURL string) ([]Folder, error) {
 			continue
 		}
 		for _, folder := range fl.Containers {
+			if strings.HasPrefix(folder.Title, "All ") {
+				continue
+			}
 			ff, err := root.post(ctx, cpath, getObjectID(folder.ID))
 			if err != nil {
 				log.Println(err)
