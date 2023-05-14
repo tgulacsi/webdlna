@@ -11,7 +11,10 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
 func main() {
@@ -25,49 +28,80 @@ func Main() error {
 	flag.Parse()
 
 	log.Println("Listening on", flag.Arg(0), "...")
-	return http.ListenAndServe(flag.Arg(0), handler{baseURL: *flagMiniDLNA})
+	return http.ListenAndServe(flag.Arg(0), &handler{baseURL: *flagMiniDLNA, cacheDur: 5 * time.Minute})
 }
 
-type handler struct{ baseURL string }
+type handler struct {
+	baseURL  string
+	cacheDur time.Duration
 
-func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	mu       sync.Mutex
+	fillTime time.Time
+	data     []Folder
+	etag     string
+}
+
+func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "" && r.URL.Path != "/" {
+		http.Error(w, r.URL.Path+" Not Found", http.StatusNotFound)
+		return
+	}
+
 	ctx := r.Context()
-	root, err := getRootDesc(h.baseURL)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
-		return
-	}
-
-	cpath := root.ContentPath()
-	dl, err := root.post(cpath, getObjectID("0"))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Cache-Control", "max-age=300")
-	io.WriteString(w, "<!doctype html>")
-	for _, container := range dl.Containers {
-		if err := ctx.Err(); err != nil {
-			log.Println(err)
+	now := time.Now()
+	var data []Folder
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.fillTime.Add(h.cacheDur).After(now) {
+		log.Printf("serving from cache of %s", h.fillTime)
+		data = h.data
+	} else {
+		root, err := getRootDesc(h.baseURL)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
 		}
-		fl, err := root.post(cpath, getObjectID(container.ID))
+
+		cpath := root.ContentPath()
+		dl, err := root.post(cpath, getObjectID("0"))
 		if err != nil {
-			printErr(err).Render(ctx, w)
-			continue
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
 		}
-		for _, folder := range fl.Containers {
-			ff, err := root.post(cpath, getObjectID(folder.ID))
+
+		for _, container := range dl.Containers {
+			if err := ctx.Err(); err != nil {
+				log.Println(err)
+				break
+			}
+			fl, err := root.post(cpath, getObjectID(container.ID))
 			if err != nil {
 				printErr(err).Render(ctx, w)
 				continue
 			}
-			if len(ff.Items) == 0 {
-				continue
+			for _, folder := range fl.Containers {
+				ff, err := root.post(cpath, getObjectID(folder.ID))
+				if err != nil {
+					printErr(err).Render(ctx, w)
+					continue
+				}
+				if len(ff.Items) == 0 {
+					continue
+				}
+				data = append(data, Folder{Container: folder, Items: ff.Items})
 			}
-			printItems(folder, ff.Items).Render(ctx, w)
 		}
+
+		h.data, h.fillTime = data, now
+		log.Printf("fresh data retrieved in %s", time.Since(now))
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "max-age="+strconv.Itoa(int(h.cacheDur.Seconds())))
+	w.Header().Set("Age", strconv.Itoa(int(now.Sub(h.fillTime).Seconds())))
+	io.WriteString(w, "<!doctype html>")
+	for _, folder := range data {
+		printItems(folder.Container, folder.Items).Render(ctx, w)
 	}
 	io.WriteString(w, "</html")
 }
@@ -260,6 +294,11 @@ type Res struct {
 	NrAudioChannels string `xml:"nrAudioChannels,attr" json:"nraudiochannels,omitempty"`
 	Resolution      string `xml:"resolution,attr" json:"resolution,omitempty"`
 	ProtocolInfo    string `xml:"protocolInfo,attr" json:"protocolinfo,omitempty"`
+}
+
+type Folder struct {
+	Container
+	Items []Item
 }
 
 func stripSize(s string) string {
