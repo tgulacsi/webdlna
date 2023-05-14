@@ -67,11 +67,8 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "max-age="+strconv.Itoa(int(h.cacheDur.Seconds())))
 	w.Header().Set("Age", strconv.Itoa(int(now.Sub(h.fillTime).Seconds())))
-	io.WriteString(w, "<!doctype html>")
-	for _, folder := range h.data {
-		printItems(folder.Container, folder.Items).Render(ctx, w)
-	}
-	io.WriteString(w, "</html")
+
+	printPage(h.baseURL, printFolders(h.data)).Render(ctx, w)
 }
 
 func getFolders(ctx context.Context, baseURL string) ([]Folder, error) {

@@ -12,7 +12,7 @@ import "bytes"
 // GoExpression
 import "strings"
 
-func printItems(folder Container, items []Item) templ.Component {
+func printPage(title string, content templ.Component) templ.Component {
 	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) (err error) {
 		templBuffer, templIsBuffer := w.(*bytes.Buffer)
 		if !templIsBuffer {
@@ -26,13 +26,108 @@ func printItems(folder Container, items []Item) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		// Element (standard)
+		_, err = templBuffer.WriteString("<html>")
+		if err != nil {
+			return err
+		}
+		// Element (standard)
+		_, err = templBuffer.WriteString("<head>")
+		if err != nil {
+			return err
+		}
+		// Element (standard)
+		_, err = templBuffer.WriteString("<title>")
+		if err != nil {
+			return err
+		}
+		// StringExpression
+		var var_2 string = title
+		_, err = templBuffer.WriteString(templ.EscapeString(var_2))
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString("</title>")
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString("</head>")
+		if err != nil {
+			return err
+		}
+		// Element (standard)
+		_, err = templBuffer.WriteString("<body>")
+		if err != nil {
+			return err
+		}
+		// CallTemplate
+		err = content.Render(ctx, templBuffer)
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString("</body>")
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString("</html>")
+		if err != nil {
+			return err
+		}
+		if !templIsBuffer {
+			_, err = io.Copy(w, templBuffer)
+		}
+		return err
+	})
+}
+
+func printFolders(folders []Folder) templ.Component {
+	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) (err error) {
+		templBuffer, templIsBuffer := w.(*bytes.Buffer)
+		if !templIsBuffer {
+			templBuffer = templ.GetBuffer()
+			defer templ.ReleaseBuffer(templBuffer)
+		}
+		ctx = templ.InitializeContext(ctx)
+		var_3 := templ.GetChildren(ctx)
+		if var_3 == nil {
+			var_3 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		// For
+		for _, folder := range folders {
+			// CallTemplate
+			err = printFolder(folder.Container, folder.Items).Render(ctx, templBuffer)
+			if err != nil {
+				return err
+			}
+		}
+		if !templIsBuffer {
+			_, err = io.Copy(w, templBuffer)
+		}
+		return err
+	})
+}
+
+func printFolder(folder Container, items []Item) templ.Component {
+	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) (err error) {
+		templBuffer, templIsBuffer := w.(*bytes.Buffer)
+		if !templIsBuffer {
+			templBuffer = templ.GetBuffer()
+			defer templ.ReleaseBuffer(templBuffer)
+		}
+		ctx = templ.InitializeContext(ctx)
+		var_4 := templ.GetChildren(ctx)
+		if var_4 == nil {
+			var_4 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		// Element (standard)
 		_, err = templBuffer.WriteString("<h1>")
 		if err != nil {
 			return err
 		}
 		// StringExpression
-		var var_2 string = folder.Title
-		_, err = templBuffer.WriteString(templ.EscapeString(var_2))
+		var var_5 string = folder.Title
+		_, err = templBuffer.WriteString(templ.EscapeString(var_5))
 		if err != nil {
 			return err
 		}
@@ -82,53 +177,53 @@ func printItems(folder Container, items []Item) templ.Component {
 			return err
 		}
 		// Text
-		var_3 := `Name`
-		_, err = templBuffer.WriteString(var_3)
-		if err != nil {
-			return err
-		}
-		_, err = templBuffer.WriteString("</th>")
-		if err != nil {
-			return err
-		}
-		// Element (standard)
-		_, err = templBuffer.WriteString("<th>")
-		if err != nil {
-			return err
-		}
-		// Text
-		var_4 := `Date`
-		_, err = templBuffer.WriteString(var_4)
-		if err != nil {
-			return err
-		}
-		_, err = templBuffer.WriteString("</th>")
-		if err != nil {
-			return err
-		}
-		// Element (standard)
-		_, err = templBuffer.WriteString("<th>")
-		if err != nil {
-			return err
-		}
-		// Text
-		var_5 := `Duration`
-		_, err = templBuffer.WriteString(var_5)
-		if err != nil {
-			return err
-		}
-		_, err = templBuffer.WriteString("</th>")
-		if err != nil {
-			return err
-		}
-		// Element (standard)
-		_, err = templBuffer.WriteString("<th>")
-		if err != nil {
-			return err
-		}
-		// Text
-		var_6 := `Size`
+		var_6 := `Name`
 		_, err = templBuffer.WriteString(var_6)
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString("</th>")
+		if err != nil {
+			return err
+		}
+		// Element (standard)
+		_, err = templBuffer.WriteString("<th>")
+		if err != nil {
+			return err
+		}
+		// Text
+		var_7 := `Date`
+		_, err = templBuffer.WriteString(var_7)
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString("</th>")
+		if err != nil {
+			return err
+		}
+		// Element (standard)
+		_, err = templBuffer.WriteString("<th>")
+		if err != nil {
+			return err
+		}
+		// Text
+		var_8 := `Duration`
+		_, err = templBuffer.WriteString(var_8)
+		if err != nil {
+			return err
+		}
+		_, err = templBuffer.WriteString("</th>")
+		if err != nil {
+			return err
+		}
+		// Element (standard)
+		_, err = templBuffer.WriteString("<th>")
+		if err != nil {
+			return err
+		}
+		// Text
+		var_9 := `Size`
+		_, err = templBuffer.WriteString(var_9)
 		if err != nil {
 			return err
 		}
@@ -177,8 +272,8 @@ func printItems(folder Container, items []Item) templ.Component {
 				if err != nil {
 					return err
 				}
-				var var_7 templ.SafeURL = templ.URL(stripSize(i.Res.URL))
-				_, err = templBuffer.WriteString(templ.EscapeString(string(var_7)))
+				var var_10 templ.SafeURL = templ.URL(stripSize(i.Res.URL))
+				_, err = templBuffer.WriteString(templ.EscapeString(string(var_10)))
 				if err != nil {
 					return err
 				}
@@ -191,8 +286,8 @@ func printItems(folder Container, items []Item) templ.Component {
 					return err
 				}
 				// StringExpression
-				var var_8 string = i.Title
-				_, err = templBuffer.WriteString(templ.EscapeString(var_8))
+				var var_11 string = i.Title
+				_, err = templBuffer.WriteString(templ.EscapeString(var_11))
 				if err != nil {
 					return err
 				}
@@ -210,8 +305,8 @@ func printItems(folder Container, items []Item) templ.Component {
 					return err
 				}
 				// StringExpression
-				var var_9 string = i.Date
-				_, err = templBuffer.WriteString(templ.EscapeString(var_9))
+				var var_12 string = i.Date
+				_, err = templBuffer.WriteString(templ.EscapeString(var_12))
 				if err != nil {
 					return err
 				}
@@ -225,8 +320,8 @@ func printItems(folder Container, items []Item) templ.Component {
 					return err
 				}
 				// StringExpression
-				var var_10 string = i.Res.Duration
-				_, err = templBuffer.WriteString(templ.EscapeString(var_10))
+				var var_13 string = i.Res.Duration
+				_, err = templBuffer.WriteString(templ.EscapeString(var_13))
 				if err != nil {
 					return err
 				}
@@ -240,8 +335,8 @@ func printItems(folder Container, items []Item) templ.Component {
 					return err
 				}
 				// StringExpression
-				var var_11 string = i.Res.Size
-				_, err = templBuffer.WriteString(templ.EscapeString(var_11))
+				var var_14 string = i.Res.Size
+				_, err = templBuffer.WriteString(templ.EscapeString(var_14))
 				if err != nil {
 					return err
 				}
@@ -278,9 +373,9 @@ func printErr(err error) templ.Component {
 			defer templ.ReleaseBuffer(templBuffer)
 		}
 		ctx = templ.InitializeContext(ctx)
-		var_12 := templ.GetChildren(ctx)
-		if var_12 == nil {
-			var_12 = templ.NopComponent
+		var_15 := templ.GetChildren(ctx)
+		if var_15 == nil {
+			var_15 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		// Element (standard)
@@ -289,8 +384,8 @@ func printErr(err error) templ.Component {
 			return err
 		}
 		// StringExpression
-		var var_13 string = err.Error()
-		_, err = templBuffer.WriteString(templ.EscapeString(var_13))
+		var var_16 string = err.Error()
+		_, err = templBuffer.WriteString(templ.EscapeString(var_16))
 		if err != nil {
 			return err
 		}
