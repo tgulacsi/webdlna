@@ -5,6 +5,7 @@
 package main
 
 import (
+	"context"
 	"encoding/xml"
 	"flag"
 	"fmt"
@@ -49,49 +50,16 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	now := time.Now()
-	var data []Folder
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.fillTime.Add(h.cacheDur).After(now) {
 		log.Printf("serving from cache of %s", h.fillTime)
-		data = h.data
 	} else {
-		root, err := getRootDesc(h.baseURL)
+		data, err := getFolders(ctx, h.baseURL)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
 		}
-
-		cpath := root.ContentPath()
-		dl, err := root.post(cpath, getObjectID("0"))
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadGateway)
-			return
-		}
-
-		for _, container := range dl.Containers {
-			if err := ctx.Err(); err != nil {
-				log.Println(err)
-				break
-			}
-			fl, err := root.post(cpath, getObjectID(container.ID))
-			if err != nil {
-				printErr(err).Render(ctx, w)
-				continue
-			}
-			for _, folder := range fl.Containers {
-				ff, err := root.post(cpath, getObjectID(folder.ID))
-				if err != nil {
-					printErr(err).Render(ctx, w)
-					continue
-				}
-				if len(ff.Items) == 0 {
-					continue
-				}
-				data = append(data, Folder{Container: folder, Items: ff.Items})
-			}
-		}
-
 		h.data, h.fillTime = data, now
 		log.Printf("fresh data retrieved in %s", time.Since(now))
 	}
@@ -100,10 +68,48 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "max-age="+strconv.Itoa(int(h.cacheDur.Seconds())))
 	w.Header().Set("Age", strconv.Itoa(int(now.Sub(h.fillTime).Seconds())))
 	io.WriteString(w, "<!doctype html>")
-	for _, folder := range data {
+	for _, folder := range h.data {
 		printItems(folder.Container, folder.Items).Render(ctx, w)
 	}
 	io.WriteString(w, "</html")
+}
+
+func getFolders(ctx context.Context, baseURL string) ([]Folder, error) {
+	root, err := getRootDesc(ctx, baseURL)
+	if err != nil {
+		return nil, err
+	}
+
+	cpath := root.ContentPath()
+	dl, err := root.post(ctx, cpath, getObjectID("0"))
+	if err != nil {
+		return nil, err
+	}
+
+	// on 8 threads it's 4.7s, with no concurrency it's 2.8s
+	var data []Folder
+	for _, container := range dl.Containers {
+		if err := ctx.Err(); err != nil {
+			return data, err
+		}
+		fl, err := root.post(ctx, cpath, getObjectID(container.ID))
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		for _, folder := range fl.Containers {
+			ff, err := root.post(ctx, cpath, getObjectID(folder.ID))
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+			if len(ff.Items) == 0 {
+				continue
+			}
+			data = append(data, Folder{Container: folder, Items: ff.Items})
+		}
+	}
+	return data, nil
 }
 
 const (
@@ -182,8 +188,12 @@ type Root struct {
 	} `xml:"device" json:"device,omitempty"`
 }
 
-func getRootDesc(baseURL string) (Root, error) {
-	resp, err := http.Get(baseURL + "/rootDesc.xml")
+func getRootDesc(ctx context.Context, baseURL string) (Root, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/rootDesc.xml", nil)
+	if err != nil {
+		return Root{}, err
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return Root{}, err
 	}
@@ -211,8 +221,8 @@ func (r Root) ContentPath() string {
 	return ""
 }
 
-func (r Root) post(path, data string) (dl DIDLLite, err error) {
-	req, err := http.NewRequest("POST", r.baseURL+path, strings.NewReader(data))
+func (r Root) post(ctx context.Context, path, data string) (dl DIDLLite, err error) {
+	req, err := http.NewRequestWithContext(ctx, "POST", r.baseURL+path, strings.NewReader(data))
 	if err != nil {
 		return dl, err
 	}
