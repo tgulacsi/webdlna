@@ -18,6 +18,8 @@ import (
 	"time"
 )
 
+//go:generate go tool templ generate
+
 func main() {
 	if err := Main(); err != nil {
 		log.Fatal("ERROR:", err)
@@ -39,7 +41,7 @@ type handler struct {
 	mu       sync.Mutex
 	fillTime time.Time
 	data     []Folder
-	etag     string
+	// etag     string
 }
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

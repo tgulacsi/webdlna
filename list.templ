@@ -6,41 +6,43 @@ templ printPage(title string, content templ.Component) {
 	<html>
 		<head><title>{ title }</title></head>
 		<body>
-			{! content }
+			@content
 		</body>
 	</html>
 }
 
 templ printFolders(folders []Folder) {
 	for _, folder := range folders {
-		{! printFolder(folder.Container, folder.Items) }
+		@printFolder(folder.Container, folder.Items)
 	}
 }
 
 templ printFolder(folder Container, items []Item) {
 	<h1>{ folder.Title }</h1>
-	<table id={ folder.ID }><thead>
-	<tr>
-		<th>Name</th>
-		<th>Date</th>
-		<th>Duration</th>
-		<th>Size</th>
-	</tr>
-</thead><tbody>
-	for _, i := range items {
-		if !strings.Contains(i.Res.URL, "/Thumbnails/") {
+	<table id={ folder.ID }>
+		<thead>
 			<tr>
-				<td><a href={ templ.URL(stripSize(i.Res.URL)) }>{ i.Title }</a></td>
-				<td>{ i.Date }</td>
-				<td>{ i.Res.Duration }</td>
-				<td>{ i.Res.Size }</td>
+				<th>Name</th>
+				<th>Date</th>
+				<th>Duration</th>
+				<th>Size</th>
 			</tr>
-		}
-	}
-</tbody></table>
+		</thead>
+		<tbody>
+			for _, i := range items {
+				if !strings.Contains(i.Res.URL, "/Thumbnails/") {
+					<tr>
+						<td><a href={ templ.URL(stripSize(i.Res.URL)) }>{ i.Title }</a></td>
+						<td>{ i.Date }</td>
+						<td>{ i.Res.Duration }</td>
+						<td>{ i.Res.Size }</td>
+					</tr>
+				}
+			}
+		</tbody>
+	</table>
 }
 
 templ printErr(err error) {
 	<h3>{ err.Error() }</h3>
 }
-
